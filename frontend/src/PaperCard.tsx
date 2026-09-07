@@ -36,11 +36,11 @@ function PaperCard({ paper }: { paper: Paper }) {
 
       <p className="card-doi">
         <span className="doi-label">DOI</span>
-        <span className="doi-value">{paper.doi && (
+        <span className="doi-value">{paper.doi ? (
           <a href={`https://doi.org/${paper.doi}`} className="doi-link" target="_blank" rel="noreferrer noopener">
             {paper.doi}
           </a>
-        ) || '—'}</span>
+        ) : '—'}</span>
       </p>
 
       {paper.topics && paper.topics.length > 0 && (
