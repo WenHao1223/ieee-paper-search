@@ -1,23 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { createJob, getJob, getResults } from './api'
+import PaperCard from './PaperCard'
 import type { Job, Paper } from './types'
 import './App.css'
 
 const STEP = 25
 const MIN = STEP
 const MAX = 250
-
-const SOURCE_LABEL: Record<string, string> = {
-  'sci-net': 'On sci-net',
-  'sci-hub': 'On sci-hub',
-  'not-found': 'Not found',
-  'not-checked': 'Not checked',
-  pending: 'Pending',
-}
-
-function badgeClass(source: string | undefined): string {
-  return source && source in SOURCE_LABEL ? source : 'pending'
-}
 
 function phaseText(job: Job): string {
   if (job.status === 'running') {
@@ -52,9 +41,12 @@ function App() {
     }
   }, [job?.log])
 
-  useEffect(() => () => {
-    if (timerRef.current !== null) window.clearTimeout(timerRef.current)
-  }, [])
+  useEffect(
+    () => () => {
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current)
+    },
+    [],
+  )
 
   async function startSearch(e: FormEvent) {
     e.preventDefault()
@@ -178,36 +170,9 @@ function App() {
           </div>
 
           <div className="cards">
-            {results.map((p) => {
-              const source = p.source ?? 'pending'
-              const href = p.pdf_link
-              return (
-                <article className="card" key={p.number || p.doi || p.link}>
-                  <h3 className="card-title">{p.title || 'Untitled paper'}</h3>
-                  <p className="card-doi">
-                    <span className="doi-label">DOI</span>
-                    <span className="doi-value">{p.doi || '—'}</span>
-                  </p>
-                  <div className="card-footer">
-                    <span className={`badge ${badgeClass(source)}`}>
-                      {SOURCE_LABEL[source] ?? 'Pending'}
-                    </span>
-                    {href ? (
-                      <a
-                        className="open-btn"
-                        href={href}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                      >
-                        Open PDF
-                      </a>
-                    ) : (
-                      <span className="open-btn disabled">Unavailable</span>
-                    )}
-                  </div>
-                </article>
-              )
-            })}
+            {results.map((p) => (
+              <PaperCard paper={p} key={p.number || p.doi || p.link} />
+            ))}
           </div>
         </section>
       )}

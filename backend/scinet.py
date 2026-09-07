@@ -20,6 +20,28 @@ UPSTREAM_URL = "https://sci-net.xyz/upstream"
 OUTPUT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output.json")
 PDF_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pdf")
 
+METADATA_KEYS = [
+    "type",
+    "title",
+    "year",
+    "journal",
+    "authors",
+    "topics",
+    "abstract",
+    "exception",
+    "logo",
+]
+
+
+def apply_metadata(entry, result):
+    """Copy the richer sci-net metadata into the paper entry."""
+    for key in METADATA_KEYS:
+        value = result.get(key)
+        if value not in (None, ""):
+            entry[key] = value
+        else:
+            entry.pop(key, None)
+
 
 def query_scinet(doi, cookie):
     """POST to sci-net.xyz/search and return the response dict."""
@@ -95,7 +117,8 @@ def main():
             try:
                 result = query_scinet(doi, args.cookie)
                 entry["sci_net"] = bool(result.get("sci-net", False))
-                entry["sci_hub"] = result.get("sci-hub", "")
+                entry["sci_hub"] = result.get("sci-hub", "") or ""
+                apply_metadata(entry, result)
                 if entry["sci_net"]:
                     status = "sci-net"
                 elif entry["sci_hub"]:

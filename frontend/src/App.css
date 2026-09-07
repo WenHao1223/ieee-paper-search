@@ -256,6 +256,72 @@
   font-size: 12.5px;
 }
 
+.card-authors {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.card-journal {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text);
+  opacity: 0.85;
+  font-style: italic;
+}
+
+.topics {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.topics li {
+  font-size: 11.5px;
+  background: rgba(139, 92, 246, 0.12);
+  color: #c3a8ff;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+
+.abstract {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.abstract-toggle {
+  align-self: flex-start;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.abstract-toggle:hover {
+  color: #c3a8ff;
+}
+
+.abstract-body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .doi-label {
   font-size: 11px;
   text-transform: uppercase;

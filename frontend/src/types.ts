@@ -10,6 +10,14 @@ export interface Paper {
   uploaded?: boolean
   pdf_link?: string | null
   source?: string
+  type?: string
+  year?: number
+  journal?: string
+  authors?: string
+  topics?: string[]
+  abstract?: string
+  exception?: boolean
+  logo?: string
 }
 
 export type JobStatus = 'running' | 'completed' | 'failed'

@@ -63,8 +63,11 @@ def pdf_link(entry: dict) -> tuple[str | None, str]:
     doi = entry.get("doi", "")
     if entry.get("sci_net"):
         return f"https://sci-net.xyz/{doi}", "sci-net"
-    if entry.get("sci_hub"):
-        return f"https://sci-hub.box/{doi}", "sci-hub"
+    sci_hub = entry.get("sci_hub", "")
+    if sci_hub:
+        if sci_hub.startswith("//"):
+            sci_hub = "https:" + sci_hub
+        return sci_hub, "sci-hub"
     status = entry.get("status", "")
     if status == "not-found":
         return None, "not-found"
