@@ -6,7 +6,7 @@ import argparse
 import json
 import os
 import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 from playwright.sync_api import sync_playwright
@@ -37,7 +37,12 @@ def download_pdf(session_cookies, article_number, target, counter, total):
     """
     pdf_url = "https://ieeexplore.ieee.org/stampPDF/getPDF.jsp?tp=&arnumber=" + article_number
     try:
-        resp = requests.get(pdf_url, cookies=session_cookies, timeout=60, headers={"user-agent": "hi"})
+        resp = requests.get(
+            pdf_url,
+            cookies=session_cookies,
+            timeout=60,
+            headers={"user-agent": "hi"}
+        )
         if resp.status_code != 200 or not resp.content.startswith(b"%PDF"):
             print(f"  Skipped {article_number}: PDF not accessible (locked?)")
             return False
@@ -48,7 +53,7 @@ def download_pdf(session_cookies, article_number, target, counter, total):
             progress = counter["n"]
         print(f"  Saved {progress}/{total} - {article_number}.pdf")
         return True
-    except Exception as exc:
+    except (OSError, requests.RequestException) as exc:
         print(f"  Failed {article_number}: {exc}")
         return False
 
@@ -166,9 +171,21 @@ def main():
         futures = []
         for number, target in jobs:
             if target is None:
-                futures.append((number, executor.submit(skip_pdf, number, counter, total, "duplicate or already exists")))
+                futures.append((
+                    number,
+                    executor.submit(
+                        skip_pdf, number, counter, total,
+                        "duplicate or already exists",
+                    ),
+                ))
             else:
-                futures.append((number, executor.submit(download_pdf, session_cookies, number, target, counter, total)))
+                futures.append((
+                    number,
+                    executor.submit(
+                        download_pdf, session_cookies, number, target,
+                        counter, total,
+                    ),
+                ))
         for _, future in futures:
             future.result()
     print("Phase 4 done.")
