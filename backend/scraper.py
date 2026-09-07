@@ -12,17 +12,16 @@ import argparse
 import json
 import os
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 import requests
 from playwright.sync_api import sync_playwright
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 URL = "https://ieeexplore.ieee.org/rest/search"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PDF_DIR = os.path.join(BASE_DIR, "pdf")
 PROFILE_DIR = os.path.join(BASE_DIR, "browser_profile")
-SIGN_IN_SELECTOR = ".stats-Unav_P_SignIn"
 HEADERS = {
     "content-type": "application/json",
     "referer": "https://ieeexplore.ieee.org/search/searchresult.jsp",
@@ -76,6 +75,21 @@ def skip_pdf(article_number, counter, total, reason):
     print(f"  Saved {progress}/{total} - {article_number}.pdf (skipped: {reason})")
 
 
+def pdf_accessible(session_cookies, article_number):
+    """Return True if getPDF returns a real PDF for the given session."""
+    pdf_url = "https://ieeexplore.ieee.org/stampPDF/getPDF.jsp?tp=&arnumber=" + article_number
+    try:
+        resp = requests.get(
+            pdf_url,
+            cookies=session_cookies,
+            timeout=30,
+            headers={"user-agent": "hi"},
+        )
+        return resp.status_code == 200 and resp.content.startswith(b"%PDF")
+    except (OSError, requests.RequestException):
+        return False
+
+
 def extract_fields(records):
     """Build a list of (title, number, link, doi) tuples from the given records."""
     out = []
@@ -123,6 +137,8 @@ def download_missing(args):
         print("Phase 5 done.")
         return
 
+    probe_numbers = [entry.get("number", "") for entry in missing if entry.get("number")]
+
     with sync_playwright() as playwright:
         context = playwright.chromium.launch_persistent_context(
             PROFILE_DIR,
@@ -133,33 +149,37 @@ def download_missing(args):
         page = context.pages[0] if context.pages else context.new_page()
         page.goto("https://ieeexplore.ieee.org/", wait_until="domcontentloaded", timeout=60000)
         page.bring_to_front()
-        signed_in = page.locator(SIGN_IN_SELECTOR).count() == 0
+        cookies = {c["name"]: c["value"] for c in context.cookies()}
 
-        if args.non_interactive:
-            if not signed_in:
-                context.close()
-                print("  IEEE session not signed in (saved browser profile expired).")
-                print("  Run interactively once to refresh it: uv run python scraper.py --download-missing")
-                raise SystemExit(1)
-            print("  Using saved browser profile (non-interactive, headless).")
-        elif not signed_in:
+        def access_ok(c):
+            return any(pdf_accessible(c, n) for n in probe_numbers)
+
+        if access_ok(cookies):
+            print("  IEEE PDF access verified (saved session).")
+        elif args.non_interactive:
+            context.close()
+            print("  IEEE session cannot access PDFs (expired, or papers locked).")
+            print("  Run interactively once to refresh it: uv run python scraper.py --download-missing")
+            raise SystemExit(1)
+        else:
             print(
-                "  IEEE is not signed in. Sign in to IEEE in the opened window"
+                "  PDFs are locked. Sign in to IEEE in the opened window"
                 f" (waiting up to {args.login_wait}s) ..."
             )
-            try:
-                page.wait_for_function(
-                    f"() => document.querySelector('{SIGN_IN_SELECTOR}') === null",
-                    timeout=args.login_wait * 1000,
-                )
-            except PlaywrightTimeoutError:
+            deadline = time.time() + args.login_wait
+            while time.time() < deadline:
+                time.sleep(3)
+                cookies = {c["name"]: c["value"] for c in context.cookies()}
+                if access_ok(cookies):
+                    break
+            if not access_ok(cookies):
                 context.close()
-                print("  Timed out waiting for IEEE sign-in.")
+                print("  PDF access not granted after login - session invalid or papers require purchase.")
                 raise SystemExit(1)
-        cookies = context.cookies()
+            print("  IEEE PDF access verified.")
         context.close()
 
-    session_cookies = {c["name"]: c["value"] for c in cookies}
+    session_cookies = cookies
 
     jobs = []
     seen = set()
@@ -181,12 +201,13 @@ def download_missing(args):
 
     counter = {"n": 0, "lock": threading.Lock()}
     total = len(jobs)
+    results = []
     with ThreadPoolExecutor(max_workers=4) as executor:
         futures = []
         for number, target in jobs:
             if target is None:
                 futures.append((
-                    number,
+                    number, None,
                     executor.submit(
                         skip_pdf, number, counter, total,
                         "duplicate or already exists",
@@ -194,14 +215,22 @@ def download_missing(args):
                 ))
             else:
                 futures.append((
-                    number,
+                    number, target,
                     executor.submit(
                         download_pdf, session_cookies, number, target,
                         counter, total,
                     ),
                 ))
-        for _, future in futures:
-            future.result()
+        for number, target, future in futures:
+            results.append((number, target, future.result()))
+
+    attempts = [r for r in results if r[1] is not None]
+    if attempts and all(not ok for _, _, ok in attempts):
+        print(
+            f"  WARNING: all {len(attempts)} missing paper(s) were locked."
+            " IEEE login may not be active, or these papers require purchase/subscription."
+        )
+        raise SystemExit(2)
     print("Phase 5 done.")
 
 
