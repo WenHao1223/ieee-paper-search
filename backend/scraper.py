@@ -5,6 +5,7 @@
 import argparse
 import json
 import os
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
@@ -29,7 +30,7 @@ def fetch_records(query):
     return resp.json()
 
 
-def download_pdf(session_cookies, article_number, target):
+def download_pdf(session_cookies, article_number, target, counter, total):
     """Download one article PDF using the signed-in session cookies.
 
     Returns True on success, False when access is locked or the fetch fails.
@@ -42,7 +43,10 @@ def download_pdf(session_cookies, article_number, target):
             return False
         with open(target, "wb") as f:
             f.write(resp.content)
-        print(f"  Saved {article_number}.pdf")
+        with counter["lock"]:
+            counter["n"] += 1
+            progress = counter["n"]
+        print(f"  Saved {progress}/{total} - {article_number}.pdf")
         return True
     except Exception as exc:
         print(f"  Failed {article_number}: {exc}")
@@ -111,9 +115,11 @@ def main():
             os.remove(target)
         pending.append((number, target))
 
+    counter = {"n": 0, "lock": threading.Lock()}
+    total = len(pending)
     with ThreadPoolExecutor(max_workers=4) as executor:
         futures = {
-            executor.submit(download_pdf, session_cookies, number, target): number
+            executor.submit(download_pdf, session_cookies, number, target, counter, total): number
             for number, target in pending
         }
         for future in as_completed(futures):
