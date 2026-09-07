@@ -1,6 +1,7 @@
 """Query sci-net.xyz to check which DOIs have been uploaded."""
 
 # uv run python scinet.py --cookie 'connect.sid=...'
+# --cookie (optional): The connect.sid cookie for sci-net.xyz (or set SCINET_COOKIE in .env).
 
 import argparse
 import json

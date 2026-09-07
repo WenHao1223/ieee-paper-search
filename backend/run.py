@@ -1,6 +1,10 @@
 """Run scraper.py, scinet.py, then upload.py sequentially with shared arguments."""
 
 # uv run python run.py --query "deep learning" --pages-from 1 --pages-to 10 --cookie 'connect.sid=...'
+# --query: The search query text to scrape IEEE Xplore for.
+# --pages-from: The first page number to scrape (default 1).
+# --pages-to: The last page number to scrape (default 10).
+# --cookie (optional): The connect.sid cookie for sci-net.xyz (or set SCINET_COOKIE in .env).
 
 import argparse
 import os
