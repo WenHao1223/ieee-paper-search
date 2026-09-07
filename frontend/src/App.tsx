@@ -12,7 +12,7 @@ function phaseText(job: Job): string {
   if (job.status === 'running') {
     return job.phase === 'checking sci-net / sci-hub'
       ? 'Checking availability on sci-net.xyz…'
-      : 'Searching IEEE Xplore…'
+      : 'Searching IEEE Xplore and downloading papers…'
   }
   if (job.status === 'failed') return 'Something went wrong'
   return 'Search finished'

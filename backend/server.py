@@ -1,5 +1,7 @@
 """FastAPI server exposing the scrap pipeline as a simple web API.
 
+uv run python server.py
+
 Endpoints:
 - POST /api/search  {"query": str, "count": 1-250}  -> starts a job, returns {"id"}
 - GET  /api/jobs/{id}  -> live status, phase, log tail and results
@@ -93,6 +95,7 @@ def load_results() -> list[dict]:
 
 
 def run_pipeline(job: dict, query: str, count: int) -> None:
+    """Run the full pipeline for a given query and count, updating the job dict."""
     pages = max(1, (count + PAGE_SIZE - 1) // PAGE_SIZE)
     scraper_cmd = [
         sys.executable,
@@ -100,9 +103,9 @@ def run_pipeline(job: dict, query: str, count: int) -> None:
         "--query", query,
         "--pages-from", "1",
         "--pages-to", str(pages),
-        "--skip-download",
+        "--non-interactive",
     ]
-    if not run_script(job, scraper_cmd, "searching IEEE Xplore"):
+    if not run_script(job, scraper_cmd, "searching IEEE Xplore and downloading PDFs"):
         with JOBS_LOCK:
             job["status"] = "failed"
         return

@@ -4,6 +4,8 @@
 # --query: The search query text to scrape IEEE Xplore for.
 # --pages-from: The first page number to scrape (default 1).
 # --pages-to: The last page number to scrape (default 10).
+# --skip-download (optional): Skip Phase 4 (interactive login + PDF download).
+# --non-interactive (optional): Reuse the saved browser profile in headless mode without prompting for login.
 # --cookie (optional): The connect.sid cookie for sci-net.xyz (or set SCINET_COOKIE in .env).
 
 import argparse
@@ -105,6 +107,11 @@ def main():
         action="store_true",
         help="Skip Phase 4 (interactive login + PDF download)",
     )
+    parser.add_argument(
+        "--non-interactive",
+        action="store_true",
+        help="Reuse the saved browser profile in headless mode without prompting for login",
+    )
     args = parser.parse_args()
 
     print(f"Phase 1: Fetching records for query '{args.query}' ...")
@@ -144,18 +151,21 @@ def main():
     with sync_playwright() as playwright:
         context = playwright.chromium.launch_persistent_context(
             PROFILE_DIR,
-            headless=False,
+            headless=args.non_interactive,
             user_agent="hi",
             accept_downloads=True,
         )
         page = context.pages[0] if context.pages else context.new_page()
         page.goto("https://ieeexplore.ieee.org/", wait_until="domcontentloaded", timeout=60000)
         page.bring_to_front()
-        print(
-            "  If not already logged in, sign in to IEEE in the opened window,"
-            " then press Enter here."
-        )
-        input("  Press Enter when signed in ...")
+        if args.non_interactive:
+            print("  Using saved browser profile (non-interactive, headless).")
+        else:
+            print(
+                "  If not already logged in, sign in to IEEE in the opened window,"
+                " then press Enter here."
+            )
+            input("  Press Enter when signed in ...")
         cookies = context.cookies()
         context.close()
 
