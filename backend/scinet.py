@@ -52,6 +52,8 @@ def main():
         doi = entry.get("doi", "")
         if not doi:
             entry["sci_net"] = False
+            entry["sci_hub"] = ""
+            entry["status"] = "not-found"
             print(f"  {i}/{total} - skipped (no DOI)")
             continue
 
@@ -60,7 +62,14 @@ def main():
             try:
                 result = query_scinet(doi, args.cookie)
                 entry["sci_net"] = bool(result.get("sci-net", False))
-                status = "found" if entry["sci_net"] else "not found"
+                entry["sci_hub"] = result.get("sci-hub", "")
+                if entry["sci_net"]:
+                    status = "sci-net"
+                elif entry["sci_hub"]:
+                    status = "sci-hub"
+                else:
+                    status = "not-found"
+                entry["status"] = status
                 print(f"  {i}/{total} - {doi} -> {status}")
                 break
             except requests.RequestException as exc:
@@ -69,6 +78,8 @@ def main():
                     time.sleep(2)
                 else:
                     entry["sci_net"] = False
+                    entry["sci_hub"] = ""
+                    entry["status"] = "not-found"
                     print(f"  {i}/{total} - {doi} -> failed ({exc})")
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
