@@ -32,17 +32,15 @@ def extract_fields(records):
 
 
 def main():
-    """Fetch search results and write extracted fields to output.txt."""
+    """Fetch search results and write extracted fields to output.json."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--query", required=True, help="Search query text")
     args = parser.parse_args()
     result = fetch_records(args.query)
     rows = extract_fields(result.get("records", []))
-    with open("output.txt", "w", encoding="utf-8") as f:
-        for title, link in rows:
-            f.write(f"Title: {title}\n")
-            f.write(f"Link: {link}\n")
-            f.write("\n")
+    data = [{"title": title, "link": link} for title, link in rows]
+    with open("output.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
 
 if __name__ == "__main__":
