@@ -18,6 +18,48 @@ The tool runs 7 sequential phases:
 
 - Python 3.10+
 - [uv](https://docs.astral.sh/uv/) package manager
+- Node.js 18+ (for the frontend)
+
+## Running the Web App
+
+The web app is split into a FastAPI **backend** and a React **frontend**. Start the backend first, then the frontend.
+
+### 1. Start the backend (API)
+
+```bash
+cd backend
+uv run python server.py
+```
+
+- Serves the API on `http://localhost:8000`.
+- Make sure `SCINET_COOKIE` is set (see Environment Setup) so the pipeline can check sci-net and upload PDFs.
+- To change the port, set the `PORT` env var (e.g. `PORT=9000`).
+- **IEEE sign-in:** the download step opens a browser to sign you into IEEE when the saved session is stale. Override the wait with the `LOGIN_WAIT` env var (seconds).
+
+### 2. Start the frontend (UI)
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+- Opens the web UI at `http://localhost:5173` (Vite dev server).
+- By default it calls the backend at the same host. If the API is on a different host/port, set the API base in `frontend/.env`:
+
+```text
+VITE_API_BASE=http://localhost:8000
+```
+
+### API endpoints
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/api/search` | Start a search job `{"query": string, "count": 1-250}` → `{"id"}` |
+| `GET` | `/api/jobs/{id}` | Live status, phase, log tail and results for a job |
+| `GET` | `/api/jobs` | Summary of all jobs |
+| `GET` | `/api/results` | Current results from `output.json` |
+| `GET` | `/api/refresh` | Re-query sci-net for papers still `not-found` (e.g. after uploads propagate) |
 
 ## Environment Setup
 
@@ -44,7 +86,7 @@ cp .env.example .env
 
 Edit `.env`:
 
-```
+```text
 SCINET_COOKIE=your_connect.sid_cookie_value_here
 ```
 
@@ -91,7 +133,7 @@ uv run python scinet.py --cookie 'connect.sid=...' --skip-query   # Phases 6-7
 ### `run.py`
 
 | Argument | Required | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `--query` | Yes | - | Search query text for IEEE Xplore |
 | `--pages-from` | No | `1` | First page number to scrape |
 | `--pages-to` | No | `10` | Last page number to scrape |
@@ -100,7 +142,7 @@ uv run python scinet.py --cookie 'connect.sid=...' --skip-query   # Phases 6-7
 ### `scraper.py`
 
 | Argument | Required | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `--query` | Yes* | - | Search query text (*not needed with `--download-missing`) |
 | `--pages-from` | No | `1` | First page to fetch |
 | `--pages-to` | No | `10` | Last page to fetch |
@@ -111,7 +153,7 @@ uv run python scinet.py --cookie 'connect.sid=...' --skip-query   # Phases 6-7
 ### `scinet.py`
 
 | Argument | Required | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `--cookie` | No | `SCINET_COOKIE` env var | `connect.sid` cookie (required at runtime) |
 | `--only-query` | No | - | Run Phase 4 only (query sci-net/sci-hub), then exit |
 | `--skip-query` | No | - | Skip Phase 4, run Phases 6-7 (register + upload) only |
@@ -148,10 +190,11 @@ Persistent Chromium profile that stores your IEEE Xplore login session so you do
 
 ## Project Structure
 
-```
+```text
 .
 ├── backend/             # All backend code
 │   ├── run.py           # Orchestrator - runs scraper (Phases 1-3, 5) and scinet (Phases 4, 6-7)
+│   ├── server.py        # FastAPI web API (start with: uv run python server.py)
 │   ├── scraper.py       # Phases 1-3: search IEEE, write JSON; Phase 5: download missing PDFs
 │   ├── scinet.py        # Phase 4: query sci-net/sci-hub; Phases 6-7: register + upload
 │   ├── pyproject.toml   # Dependencies and project config
@@ -160,5 +203,8 @@ Persistent Chromium profile that stores your IEEE Xplore login session so you do
 │   ├── output.json      # Generated search results
 │   ├── pdf/             # Downloaded PDFs
 │   └── browser_profile/ # Chromium login session
-└── frontend/            # Frontend application
+└── frontend/            # React frontend (start with: npm run dev)
+    ├── src/             # App, PaperCard, api and types
+    ├── index.html
+    └── package.json
 ```
