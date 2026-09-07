@@ -1,4 +1,4 @@
-"""Run scraper.py then scinet.py sequentially with shared arguments."""
+"""Run scraper.py, scinet.py, then upload.py sequentially with shared arguments."""
 
 # uv run python run.py --query "deep learning" --pages-from 1 --pages-to 10 --cookie 'connect.sid=...'
 
@@ -23,7 +23,7 @@ def run(script, args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run scraper then sci-net lookup.")
+    parser = argparse.ArgumentParser(description="Run scraper, sci-net lookup, then upload.")
     parser.add_argument("--query", required=True, help="Search query text")
     parser.add_argument("--pages-from", type=int, default=1, help="First page (default 1)")
     parser.add_argument("--pages-to", type=int, default=10, help="Last page (default 10)")
@@ -35,13 +35,12 @@ def main():
     args = parser.parse_args()
 
     scraper_args = ["--query", args.query, "--pages-from", str(args.pages_from), "--pages-to", str(args.pages_to)]
-    scinet_args = ["--cookie", args.cookie] if args.cookie else []
 
     run("scraper.py", scraper_args)
-    if scinet_args:
-        run("scinet.py", scinet_args)
+    if args.cookie:
+        run("scinet.py", ["--cookie", args.cookie])
     else:
-        print("Skipping Phase 5: no --cookie provided.")
+        print("Skipping Phases 5-6: no --cookie provided.")
 
 
 if __name__ == "__main__":
