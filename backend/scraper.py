@@ -26,7 +26,7 @@ def extract_fields(records):
     out = []
     for rec in records:
         title = rec.get("highlightedTitle", "")
-        link = rec.get("documentLink", "")
+        link = "https://ieeexplore.ieee.org" + rec.get("documentLink", "")
         out.append((title, link))
     return out
 
