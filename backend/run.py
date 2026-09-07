@@ -1,4 +1,4 @@
-"""Run scraper.py, scinet.py, then upload.py sequentially with shared arguments."""
+"""Run scraper.py and scinet.py sequentially with shared arguments."""
 
 # uv run python run.py --query "deep learning" --pages-from 1 --pages-to 10 --cookie 'connect.sid=...'
 # --query: The search query text to scrape IEEE Xplore for.
@@ -27,7 +27,7 @@ def run(script, args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run scraper, sci-net lookup, then upload.")
+    parser = argparse.ArgumentParser(description="Query sci-net availability, download missing PDFs, then upload.")
     parser.add_argument("--query", required=True, help="Search query text")
     parser.add_argument("--pages-from", type=int, default=1, help="First page (default 1)")
     parser.add_argument("--pages-to", type=int, default=10, help="Last page (default 10)")
@@ -42,9 +42,13 @@ def main():
 
     run("scraper.py", scraper_args)
     if args.cookie:
-        run("scinet.py", ["--cookie", args.cookie])
+        run("scinet.py", ["--cookie", args.cookie, "--only-query"])
+        run("scraper.py", scraper_args + ["--download-missing"])
+        run("scinet.py", ["--cookie", args.cookie, "--skip-query"])
     else:
-        print("Skipping Phases 5-6: no --cookie provided.")
+        print("Skipping Phase 4: no --cookie provided (querying sci-net/sci-hub).")
+        run("scraper.py", scraper_args + ["--download-missing"])
+        print("Skipping Phases 6-7: no --cookie provided.")
 
 
 if __name__ == "__main__":

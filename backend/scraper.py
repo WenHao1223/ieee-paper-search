@@ -4,7 +4,7 @@
 # --query: The search query text to scrape IEEE Xplore for.
 # --pages-from: The first page number to scrape (default 1).
 # --pages-to: The last page number to scrape (default 10).
-# --skip-download (optional): Skip Phase 4 (interactive login + PDF download).
+# --download-missing (optional): Phase 5 – download PDFs only for papers not found on sci-net/sci-hub.
 # --non-interactive (optional): Reuse the saved browser profile in headless mode without prompting for login.
 # --cookie (optional): The connect.sid cookie for sci-net.xyz (or set SCINET_COOKIE in .env).
 
@@ -96,57 +96,27 @@ def merge_rows(rows):
     return merged
 
 
-def main():
-    """Fetch search results and write extracted fields to output.json."""
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--query", required=True, help="Search query text")
-    parser.add_argument("--pages-from", type=int, default=1, help="First page to fetch (default 1)")
-    parser.add_argument("--pages-to", type=int, default=10, help="Last page to fetch (default 10)")
-    parser.add_argument(
-        "--skip-download",
-        action="store_true",
-        help="Skip Phase 4 (interactive login + PDF download)",
-    )
-    parser.add_argument(
-        "--non-interactive",
-        action="store_true",
-        help="Reuse the saved browser profile in headless mode without prompting for login",
-    )
-    args = parser.parse_args()
+def download_missing(args):
+    """Phase 5: download PDFs only for papers not found on sci-net/sci-hub.
 
-    print(f"Phase 1: Fetching records for query '{args.query}' ...")
-    all_rows = []
-    pages = range(args.pages_from, args.pages_to + 1)
-    for page_number in pages:
-        print(f"  Fetching page {page_number}/{args.pages_to} ...")
-        result = fetch_records(args.query, page_number)
-        all_rows.extend(extract_fields(result.get("records", [])))
-    print("Phase 1 done.")
-
-    print("Phase 2: Extracting fields ...")
-    rows = merge_rows(all_rows)
-    print(f"Phase 2 done ({len(rows)} unique records).")
-
-    print("Phase 3: Writing output.json ...")
-    data = [
-        {
-            "title": title,
-            "number": number,
-            "link": link,
-            "doi": doi
-        }
-        for title, number, link, doi in rows
-    ]
-    with open("output.json", "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    print("Phase 3 done.")
-
-    if args.skip_download:
-        print("Phase 4: skipping PDF download.")
-        return
-
-    print("Phase 4: Downloading PDFs ...")
+    Reads output.json and downloads PDFs for entries whose status is
+    "not-found" or unset (unset means Phase 4 was skipped, so download all).
+    """
+    print("Phase 5: Downloading missing PDFs ...")
     os.makedirs(PDF_DIR, exist_ok=True)
+
+    with open("output.json", "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    missing = [
+        entry for entry in data
+        if entry.get("status") in ("not-found", "")
+        or not entry.get("status")
+    ]
+    if not missing:
+        print("  No missing PDFs to download.")
+        print("Phase 5 done.")
+        return
 
     with sync_playwright() as playwright:
         context = playwright.chromium.launch_persistent_context(
@@ -173,7 +143,8 @@ def main():
 
     jobs = []
     seen = set()
-    for _, number, _, _ in rows:
+    for entry in missing:
+        number = entry.get("number", "")
         if not number:
             continue
         if number in seen:
@@ -211,7 +182,60 @@ def main():
                 ))
         for _, future in futures:
             future.result()
-    print("Phase 4 done.")
+    print("Phase 5 done.")
+
+
+def main():
+    """Fetch search results and write extracted fields to output.json."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--query", help="Search query text (required unless --download-missing)")
+    parser.add_argument("--pages-from", type=int, default=1, help="First page to fetch (default 1)")
+    parser.add_argument("--pages-to", type=int, default=10, help="Last page to fetch (default 10)")
+    parser.add_argument(
+        "--download-missing",
+        action="store_true",
+        help="Phase 5: download PDFs only for papers not found on sci-net/sci-hub",
+    )
+    parser.add_argument(
+        "--non-interactive",
+        action="store_true",
+        help="Reuse the saved browser profile in headless mode without prompting for login",
+    )
+    args = parser.parse_args()
+
+    if args.download_missing:
+        download_missing(args)
+        return
+
+    if not args.query:
+        parser.error("--query is required unless --download-missing is given.")
+
+    print(f"Phase 1: Fetching records for query '{args.query}' ...")
+    all_rows = []
+    pages = range(args.pages_from, args.pages_to + 1)
+    for page_number in pages:
+        print(f"  Fetching page {page_number}/{args.pages_to} ...")
+        result = fetch_records(args.query, page_number)
+        all_rows.extend(extract_fields(result.get("records", [])))
+    print("Phase 1 done.")
+
+    print("Phase 2: Extracting fields ...")
+    rows = merge_rows(all_rows)
+    print(f"Phase 2 done ({len(rows)} unique records).")
+
+    print("Phase 3: Writing output.json ...")
+    data = [
+        {
+            "title": title,
+            "number": number,
+            "link": link,
+            "doi": doi
+        }
+        for title, number, link, doi in rows
+    ]
+    with open("output.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    print("Phase 3 done.")
 
 
 if __name__ == "__main__":

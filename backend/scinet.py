@@ -2,6 +2,8 @@
 
 # uv run python scinet.py --cookie 'connect.sid=...'
 # --cookie (optional): The connect.sid cookie for sci-net.xyz (or set SCINET_COOKIE in .env).
+# --only-query (optional): Run Phase 4 only (query sci-net/sci-hub), then exit.
+# --skip-query (optional): Skip Phase 4, run Phases 6-7 (register + upload) only.
 
 import argparse
 import json
@@ -93,55 +95,69 @@ def main():
         default=os.environ.get("SCINET_COOKIE"),
         help="connect.sid cookie (or set SCINET_COOKIE in .env)",
     )
+    parser.add_argument(
+        "--only-query",
+        action="store_true",
+        help="Run Phase 4 only (query sci-net/sci-hub), then exit",
+    )
+    parser.add_argument(
+        "--skip-query",
+        action="store_true",
+        help="Skip Phase 4, run Phases 6-7 (register + upload) only",
+    )
     args = parser.parse_args()
 
     if not args.cookie:
         parser.error("Cookie is required. Pass --cookie or set SCINET_COOKIE in .env.")
 
-    print("Phase 5: Querying sci-net.xyz ...")
     with open(OUTPUT_FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
-
     total = len(data)
-    for i, entry in enumerate(data, 1):
-        doi = entry.get("doi", "")
-        if not doi:
-            entry["sci_net"] = False
-            entry["sci_hub"] = ""
-            entry["status"] = "not-found"
-            print(f"  {i}/{total} - skipped (no DOI)")
-            continue
 
-        retries = 3
-        for attempt in range(retries):
-            try:
-                result = query_scinet(doi, args.cookie)
-                entry["sci_net"] = bool(result.get("sci-net", False))
-                entry["sci_hub"] = result.get("sci-hub", "") or ""
-                apply_metadata(entry, result)
-                if entry["sci_net"]:
-                    status = "sci-net"
-                elif entry["sci_hub"]:
-                    status = "sci-hub"
-                else:
-                    status = "not-found"
-                entry["status"] = status
-                print(f"  {i}/{total} - {doi} -> {status}")
-                break
-            except requests.RequestException as exc:
-                if attempt < retries - 1:
-                    print(f"  {i}/{total} - {doi} -> retry ({exc})")
-                    time.sleep(2)
-                else:
-                    entry["sci_net"] = False
-                    entry["sci_hub"] = ""
-                    entry["status"] = "not-found"
-                    print(f"  {i}/{total} - {doi} -> failed ({exc})")
+    if not args.skip_query:
+        print("Phase 4: Querying sci-net.xyz ...")
+        for i, entry in enumerate(data, 1):
+            doi = entry.get("doi", "")
+            if not doi:
+                entry["sci_net"] = False
+                entry["sci_hub"] = ""
+                entry["status"] = "not-found"
+                print(f"  {i}/{total} - skipped (no DOI)")
+                continue
 
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+            retries = 3
+            for attempt in range(retries):
+                try:
+                    result = query_scinet(doi, args.cookie)
+                    entry["sci_net"] = bool(result.get("sci-net", False))
+                    entry["sci_hub"] = result.get("sci-hub", "") or ""
+                    apply_metadata(entry, result)
+                    if entry["sci_net"]:
+                        status = "sci-net"
+                    elif entry["sci_hub"]:
+                        status = "sci-hub"
+                    else:
+                        status = "not-found"
+                    entry["status"] = status
+                    print(f"  {i}/{total} - {doi} -> {status}")
+                    break
+                except requests.RequestException as exc:
+                    if attempt < retries - 1:
+                        print(f"  {i}/{total} - {doi} -> retry ({exc})")
+                        time.sleep(2)
+                    else:
+                        entry["sci_net"] = False
+                        entry["sci_hub"] = ""
+                        entry["status"] = "not-found"
+                        print(f"  {i}/{total} - {doi} -> failed ({exc})")
 
-    print("Phase 5 done.")
+        with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+        print("Phase 4 done.")
+
+        if args.only_query:
+            return
 
     print("Phase 6: Registering uploads ...")
     for i, entry in enumerate(data, 1):
