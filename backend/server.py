@@ -16,9 +16,12 @@ import sys
 import threading
 import uuid
 
+import requests
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import Body, FastAPI
+
+from scinet import apply_metadata, query_scinet
 
 load_dotenv()
 
@@ -72,6 +75,9 @@ def pdf_link(entry: dict) -> tuple[str | None, str]:
         if sci_hub.startswith("//"):
             sci_hub = "https:" + sci_hub
         return sci_hub, "sci-hub"
+    if entry.get("uploaded"):
+        # Recent uploads to sci-net are immediately available via the DOI prefix.
+        return f"https://sci-net.xyz/{doi}", "sci-net"
     status = entry.get("status", "")
     if status == "not-found":
         return None, "not-found"
@@ -226,6 +232,45 @@ def list_jobs() -> list[dict]:
 @app.get("/api/results")
 def results() -> list[dict]:
     """Return the current results from output.json, enriched with pdf_link and source."""
+    return load_results()
+
+
+@app.get("/api/refresh")
+def refresh_results() -> list[dict]:
+    """Re-query sci-net for papers still not found (e.g. after uploads propagate)."""
+    if not os.path.exists(OUTPUT_FILE):
+        return []
+    try:
+        with open(OUTPUT_FILE, encoding="utf-8") as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return []
+
+    cookie = os.environ.get("SCINET_COOKIE")
+    if cookie:
+        for entry in data:
+            if entry.get("status") != "not-found":
+                continue
+            doi = entry.get("doi", "")
+            if not doi:
+                continue
+            try:
+                result = query_scinet(doi, cookie)
+            except requests.RequestException:
+                continue
+            entry["sci_net"] = bool(result.get("sci-net", False))
+            entry["sci_hub"] = result.get("sci-hub", "") or ""
+            apply_metadata(entry, result)
+            if entry["sci_net"]:
+                status = "sci-net"
+            elif entry["sci_hub"]:
+                status = "sci-hub"
+            else:
+                status = "not-found"
+            entry["status"] = status
+        with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
     return load_results()
 
 

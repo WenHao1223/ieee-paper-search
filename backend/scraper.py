@@ -147,7 +147,7 @@ def download_missing(args):
             accept_downloads=True,
         )
         page = context.pages[0] if context.pages else context.new_page()
-        page.goto("https://ieeexplore.ieee.org/", wait_until="domcontentloaded", timeout=60000)
+        page.goto("https://ieeexplore.ieee.org/", wait_until="domcontentloaded", timeout=20000)
         page.bring_to_front()
         cookies = {c["name"]: c["value"] for c in context.cookies()}
 

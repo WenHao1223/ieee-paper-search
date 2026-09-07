@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { createJob, getJob, getResults } from './api'
+import { createJob, getJob, getResults, refreshResults } from './api'
 import PaperCard from './PaperCard'
 import type { Job, Paper } from './types'
 import './App.css'
@@ -7,6 +7,12 @@ import './App.css'
 const STEP = 25
 const MIN = STEP
 const MAX = 250
+const REFRESH_INTERVAL = 15000
+const MAX_REFRESHES = 6
+
+function hasNotFound(results: Paper[] | null): boolean {
+  return (results ?? []).some((p) => p.source === 'not-found')
+}
 
 function phaseText(job: Job): string {
   if (job.status === 'running') {
@@ -33,6 +39,7 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const timerRef = useRef<number | null>(null)
   const logRef = useRef<HTMLDivElement>(null)
+  const refreshCountRef = useRef(0)
 
   useEffect(() => {
     getResults()
@@ -59,6 +66,7 @@ function App() {
     e.preventDefault()
     if (!query.trim()) return
     if (timerRef.current !== null) window.clearTimeout(timerRef.current)
+    refreshCountRef.current = 0
     setError(null)
     setResults(null)
     setJob(null)
@@ -74,13 +82,33 @@ function App() {
     }
   }
 
+  function scheduleRefresh(delay: number) {
+    timerRef.current = window.setTimeout(async () => {
+      try {
+        const updated = await refreshResults()
+        setResults(updated)
+        if (hasNotFound(updated) && refreshCountRef.current < MAX_REFRESHES) {
+          refreshCountRef.current += 1
+          scheduleRefresh(REFRESH_INTERVAL)
+        }
+      } catch {
+        // ignore transient refresh errors; remain on last known results
+      }
+    }, delay)
+  }
+
   function poll(id: string) {
     const tick = async () => {
       try {
         const j = await getJob(id)
         setJob(j)
         if (j.status === 'completed' || j.status === 'failed') {
-          if (j.results) setResults(j.results)
+          if (j.results) {
+            setResults(j.results)
+            if (j.status === 'completed' && hasNotFound(j.results)) {
+              scheduleRefresh(REFRESH_INTERVAL)
+            }
+          }
           return
         }
       } catch (err) {

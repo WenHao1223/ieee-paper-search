@@ -37,3 +37,7 @@ export function getJob(id: string): Promise<Job> {
 export function getResults(): Promise<Paper[]> {
   return request<Paper[]>('/api/results')
 }
+
+export function refreshResults(): Promise<Paper[]> {
+  return request<Paper[]>('/api/refresh')
+}
