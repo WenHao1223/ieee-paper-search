@@ -133,8 +133,8 @@ function App() {
       <header className="header">
         <h1>IEEE Paper Search</h1>
         <p className="subtitle">
-          Search academic papers on IEEE Xplore and get a direct PDF link from
-          sci-net or sci-hub when one is available.
+          Search IEEE Xplore for academic papers, download their PDFs,
+          and automatically upload papers not found on sci-net.xyz or sci-hub.
         </p>
       </header>
 
