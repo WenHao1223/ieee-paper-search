@@ -15,6 +15,7 @@ load_dotenv()
 
 SCINET_URL = "https://sci-net.xyz/search"
 UPLOAD_URL = "https://sci-net.xyz/upload"
+UPSTREAM_URL = "https://sci-net.xyz/upstream"
 OUTPUT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output.json")
 PDF_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pdf")
 
@@ -43,6 +44,22 @@ def register_upload(doi, size, cookie):
     )
     resp.raise_for_status()
     return resp.json().get("ticket", "")
+
+
+def send_upstream(ticket, filename, pdf_path, cookie):
+    """POST the PDF to sci-net.xyz/upstream with the ticket."""
+    with open(pdf_path, "rb") as f:
+        files = {"file": (filename, f, "application/pdf")}
+        data = {"ticket": ticket}
+        resp = requests.post(
+            UPSTREAM_URL,
+            data=data,
+            files=files,
+            cookies={"connect.sid": cookie},
+            timeout=120,
+        )
+    resp.raise_for_status()
+    return resp.json().get("success", False)
 
 
 def main():
@@ -141,6 +158,42 @@ def main():
         json.dump(data, f, ensure_ascii=False, indent=2)
 
     print("Phase 6 done.")
+
+    print("Phase 7: Uploading PDFs ...")
+    for i, entry in enumerate(data, 1):
+        doi = entry.get("doi", "")
+        number = entry.get("number", "")
+        ticket = entry.get("ticket", "")
+        if not ticket:
+            print(f"  {i}/{total} - skipped (no ticket)")
+            continue
+
+        pdf_path = os.path.join(PDF_DIR, f"{number}.pdf")
+        if not os.path.exists(pdf_path):
+            print(f"  {i}/{total} - skipped (no pdf)")
+            continue
+
+        filename = os.path.basename(pdf_path.replace("\\", "/"))
+        retries = 3
+        for attempt in range(retries):
+            try:
+                success = send_upstream(ticket, filename, pdf_path, args.cookie)
+                entry["uploaded"] = success
+                status = "uploaded" if success else "failed"
+                print(f"  {i}/{total} - {doi} -> {status}")
+                break
+            except requests.RequestException as exc:
+                if attempt < retries - 1:
+                    print(f"  {i}/{total} - {doi} -> retry ({exc})")
+                    time.sleep(2)
+                else:
+                    entry["uploaded"] = False
+                    print(f"  {i}/{total} - {doi} -> failed ({exc})")
+
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+    print("Phase 7 done.")
 
 
 if __name__ == "__main__":
