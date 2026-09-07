@@ -1,6 +1,6 @@
 """Search IEEE Xplore and extract title and document links from results."""
 
-# python scraper.py --query "deep learning" --pages-from 1 --pages-to 1
+# uv run python scraper.py --query "deep learning" --pages-from 1 --pages-to 1
 
 import argparse
 import json

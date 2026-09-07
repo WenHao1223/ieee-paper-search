@@ -1,0 +1,9 @@
+[project]
+name = "scrap-ieee-backend"
+version = "0.1.0"
+description = "Search IEEE Xplore and download article PDFs"
+requires-python = ">=3.10"
+dependencies = [
+    "playwright>=1.62.0",
+    "requests>=2.34.2",
+]
