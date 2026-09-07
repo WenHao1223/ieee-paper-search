@@ -105,21 +105,20 @@ def run_pipeline(job: dict, query: str, count: int) -> None:
         "--query", query,
         "--pages-from", "1",
         "--pages-to", str(pages),
-        "--non-interactive",
     ]
-    if not run_script(job, scraper_cmd, "searching IEEE Xplore and downloading PDFs"):
+    if not run_script(job, scraper_cmd, "searching IEEE Xplore"):
         with JOBS_LOCK:
             job["status"] = "failed"
         return
 
     cookie = os.environ.get("SCINET_COOKIE")
     if cookie:
-        ok = run_script(
+        # Phase 4: check sci-net / sci-hub availability
+        if not run_script(
             job,
-            [sys.executable, os.path.join(BASE_DIR, "scinet.py"), "--cookie", cookie],
+            [sys.executable, os.path.join(BASE_DIR, "scinet.py"), "--cookie", cookie, "--only-query"],
             "checking sci-net / sci-hub",
-        )
-        if not ok:
+        ):
             with JOBS_LOCK:
                 job["status"] = "failed"
             return
@@ -130,6 +129,31 @@ def run_pipeline(job: dict, query: str, count: int) -> None:
             entry["status"] = "not-checked"
         with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+
+    # Phase 5: download PDFs not found anywhere.
+    # Headed + auto-detect: if the saved IEEE session is stale, a browser opens
+    # and waits for sign-in (up to LOGIN_WAIT seconds). No stdin needed.
+    if not run_script(
+        job,
+        scraper_cmd + ["--download-missing", "--login-wait", os.environ.get("LOGIN_WAIT", "300")],
+        "downloading missing PDFs",
+    ):
+        with JOBS_LOCK:
+            job["status"] = "failed"
+        return
+
+    if cookie:
+        # Phases 6-7: register upload tickets and upload PDFs
+        if not run_script(
+            job,
+            [sys.executable, os.path.join(BASE_DIR, "scinet.py"), "--cookie", cookie, "--skip-query"],
+            "registering and uploading PDFs",
+        ):
+            with JOBS_LOCK:
+                job["status"] = "failed"
+            return
+    else:
+        log(job, "SCINET_COOKIE not set - skipping upload.")
 
     with JOBS_LOCK:
         job["status"] = "completed"

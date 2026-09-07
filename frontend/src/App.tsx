@@ -10,9 +10,16 @@ const MAX = 250
 
 function phaseText(job: Job): string {
   if (job.status === 'running') {
-    return job.phase === 'checking sci-net / sci-hub'
-      ? 'Checking availability on sci-net.xyz…'
-      : 'Searching IEEE Xplore and downloading papers…'
+    switch (job.phase) {
+      case 'checking sci-net / sci-hub':
+        return 'Checking availability on sci-net.xyz…'
+      case 'downloading missing PDFs':
+        return 'Downloading PDFs not found on sci-net/sci-hub…'
+      case 'registering and uploading PDFs':
+        return 'Registering and uploading PDFs to sci-net.xyz…'
+      default:
+        return 'Searching IEEE Xplore…'
+    }
   }
   if (job.status === 'failed') return 'Something went wrong'
   return 'Search finished'

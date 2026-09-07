@@ -16,16 +16,20 @@ from concurrent.futures import ThreadPoolExecutor
 
 import requests
 from playwright.sync_api import sync_playwright
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 URL = "https://ieeexplore.ieee.org/rest/search"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PDF_DIR = os.path.join(BASE_DIR, "pdf")
 PROFILE_DIR = os.path.join(BASE_DIR, "browser_profile")
+SIGN_IN_SELECTOR = ".stats-Unav_P_SignIn"
 HEADERS = {
     "content-type": "application/json",
     "referer": "https://ieeexplore.ieee.org/search/searchresult.jsp",
     "user-agent": "hi",
 }
+
+LOGIN_WAIT_DEFAULT = 180
 
 
 def fetch_records(query, page_number=1):
@@ -100,7 +104,8 @@ def download_missing(args):
     """Phase 5: download PDFs only for papers not found on sci-net/sci-hub.
 
     Reads output.json and downloads PDFs for entries whose status is
-    "not-found" or unset (unset means Phase 4 was skipped, so download all).
+    "not-found", "not-checked" or unset (not-checked/unset mean Phase 4 was
+    skipped, so download all).
     """
     print("Phase 5: Downloading missing PDFs ...")
     os.makedirs(PDF_DIR, exist_ok=True)
@@ -110,7 +115,7 @@ def download_missing(args):
 
     missing = [
         entry for entry in data
-        if entry.get("status") in ("not-found", "")
+        if entry.get("status") in ("not-found", "not-checked", "")
         or not entry.get("status")
     ]
     if not missing:
@@ -128,14 +133,29 @@ def download_missing(args):
         page = context.pages[0] if context.pages else context.new_page()
         page.goto("https://ieeexplore.ieee.org/", wait_until="domcontentloaded", timeout=60000)
         page.bring_to_front()
+        signed_in = page.locator(SIGN_IN_SELECTOR).count() == 0
+
         if args.non_interactive:
+            if not signed_in:
+                context.close()
+                print("  IEEE session not signed in (saved browser profile expired).")
+                print("  Run interactively once to refresh it: uv run python scraper.py --download-missing")
+                raise SystemExit(1)
             print("  Using saved browser profile (non-interactive, headless).")
-        else:
+        elif not signed_in:
             print(
-                "  If not already logged in, sign in to IEEE in the opened window,"
-                " then press Enter here."
+                "  IEEE is not signed in. Sign in to IEEE in the opened window"
+                f" (waiting up to {args.login_wait}s) ..."
             )
-            input("  Press Enter when signed in ...")
+            try:
+                page.wait_for_function(
+                    f"() => document.querySelector('{SIGN_IN_SELECTOR}') === null",
+                    timeout=args.login_wait * 1000,
+                )
+            except PlaywrightTimeoutError:
+                context.close()
+                print("  Timed out waiting for IEEE sign-in.")
+                raise SystemExit(1)
         cookies = context.cookies()
         context.close()
 
@@ -200,6 +220,12 @@ def main():
         "--non-interactive",
         action="store_true",
         help="Reuse the saved browser profile in headless mode without prompting for login",
+    )
+    parser.add_argument(
+        "--login-wait",
+        type=int,
+        default=LOGIN_WAIT_DEFAULT,
+        help=f"Seconds to wait for interactive IEEE sign-in (default {LOGIN_WAIT_DEFAULT})",
     )
     args = parser.parse_args()
 

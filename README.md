@@ -62,6 +62,8 @@ uv run python run.py --query "search term" --pages-from 1 --pages-to 10
 
 This runs Phase 1-3 (scrape), Phase 4 (sci-net/sci-hub lookup), Phase 5 (download missing PDFs), and Phases 6-7 (register and upload).
 
+> **IEEE sign-in:** Phase 5 opens a browser window. If the saved IEEE session is still valid it proceeds immediately; otherwise it waits for you to sign in (default `--login-wait 180s`, override with the `LOGIN_WAIT` env var for the server). This works for both `run.py` and the server.
+
 ### Run individual scripts
 
 **Scraper only** (Phases 1-3, plus Phase 5 with `--download-missing`):
@@ -103,7 +105,8 @@ uv run python scinet.py --cookie 'connect.sid=...' --skip-query   # Phases 6-7
 | `--pages-from` | No | `1` | First page to fetch |
 | `--pages-to` | No | `10` | Last page to fetch |
 | `--download-missing` | No | - | Phase 5: download PDFs only for papers not found on sci-net/sci-hub |
-| `--non-interactive` | No | - | Reuse the saved browser profile in headless mode |
+| `--non-interactive` | No | - | Reuse the saved browser profile in headless mode (fails fast if not signed in) |
+| `--login-wait` | No | `180` | Seconds to wait for interactive IEEE sign-in in the opened browser |
 
 ### `scinet.py`
 
