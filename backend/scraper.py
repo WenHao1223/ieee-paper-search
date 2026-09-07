@@ -36,11 +36,20 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--query", required=True, help="Search query text")
     args = parser.parse_args()
+
+    print(f"Phase 1: Fetching records for query '{args.query}' ...")
     result = fetch_records(args.query)
+    print("Phase 1 done.")
+
+    print("Phase 2: Extracting fields ...")
     rows = extract_fields(result.get("records", []))
+    print("Phase 2 done.")
+
+    print("Phase 3: Writing output.json ...")
     data = [{"title": title, "link": link} for title, link in rows]
     with open("output.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+    print("Phase 3 done.")
 
 
 if __name__ == "__main__":
