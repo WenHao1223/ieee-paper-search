@@ -53,6 +53,14 @@ def download_pdf(session_cookies, article_number, target, counter, total):
         return False
 
 
+def skip_pdf(article_number, counter, total, reason):
+    """Count a skipped article number toward progress."""
+    with counter["lock"]:
+        counter["n"] += 1
+        progress = counter["n"]
+    print(f"  Saved {progress}/{total} - {article_number}.pdf (skipped: {reason})")
+
+
 def extract_fields(records):
     """Build a list of (title, number, link) tuples from the given records."""
     out = []
@@ -104,25 +112,33 @@ def main():
 
     session_cookies = {c["name"]: c["value"] for c in cookies}
 
-    pending = []
+    jobs = []
+    seen = set()
     for _, number, _ in rows:
         if not number:
             continue
+        if number in seen:
+            jobs.append((number, None))
+            continue
+        seen.add(number)
         target = os.path.join(PDF_DIR, f"{number}.pdf")
         if os.path.exists(target) and os.path.getsize(target) > 0:
+            jobs.append((number, None))
             continue
         if os.path.exists(target):
             os.remove(target)
-        pending.append((number, target))
+        jobs.append((number, target))
 
     counter = {"n": 0, "lock": threading.Lock()}
-    total = len(pending)
+    total = len(jobs)
     with ThreadPoolExecutor(max_workers=4) as executor:
-        futures = {
-            executor.submit(download_pdf, session_cookies, number, target, counter, total): number
-            for number, target in pending
-        }
-        for future in as_completed(futures):
+        futures = []
+        for number, target in jobs:
+            if target is None:
+                futures.append((number, executor.submit(skip_pdf, number, counter, total, "duplicate or already exists")))
+            else:
+                futures.append((number, executor.submit(download_pdf, session_cookies, number, target, counter, total)))
+        for _, future in futures:
             future.result()
     print("Phase 4 done.")
 
