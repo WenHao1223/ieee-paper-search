@@ -1,6 +1,6 @@
 """Search IEEE Xplore and extract title and document links from results."""
 
-# python scraper.py --query "deep learning"
+# python scraper.py --query "deep learning" --pages-from 1 --pages-to 10
 
 import argparse
 import json
@@ -22,9 +22,9 @@ HEADERS = {
 }
 
 
-def fetch_records(query):
-    """Return the JSON search response for the given query."""
-    payload = {"queryText": query}
+def fetch_records(query, page_number=1):
+    """Return the JSON search response for the given query and page."""
+    payload = {"queryText": query, "pageNumber": str(page_number)}
     resp = requests.post(URL, json=payload, headers=HEADERS, timeout=60)
     resp.raise_for_status()
     return resp.json()
@@ -72,19 +72,38 @@ def extract_fields(records):
     return out
 
 
+def merge_rows(rows):
+    """Merge rows across pages, keeping unique article numbers in order."""
+    merged = []
+    seen = set()
+    for item in rows:
+        if item[1] in seen:
+            continue
+        seen.add(item[1])
+        merged.append(item)
+    return merged
+
+
 def main():
     """Fetch search results and write extracted fields to output.json."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--query", required=True, help="Search query text")
+    parser.add_argument("--pages-from", type=int, default=1, help="First page to fetch (default 1)")
+    parser.add_argument("--pages-to", type=int, default=10, help="Last page to fetch (default 10)")
     args = parser.parse_args()
 
     print(f"Phase 1: Fetching records for query '{args.query}' ...")
-    result = fetch_records(args.query)
+    all_rows = []
+    pages = range(args.pages_from, args.pages_to + 1)
+    for page_number in pages:
+        print(f"  Fetching page {page_number}/{args.pages_to} ...")
+        result = fetch_records(args.query, page_number)
+        all_rows.extend(extract_fields(result.get("records", [])))
     print("Phase 1 done.")
 
     print("Phase 2: Extracting fields ...")
-    rows = extract_fields(result.get("records", []))
-    print("Phase 2 done.")
+    rows = merge_rows(all_rows)
+    print(f"Phase 2 done ({len(rows)} unique records).")
 
     print("Phase 3: Writing output.json ...")
     data = [{"title": title, "number": number, "link": link} for title, number, link in rows]
