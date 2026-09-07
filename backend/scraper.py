@@ -22,12 +22,13 @@ def fetch_records(query):
 
 
 def extract_fields(records):
-    """Build a list of (title, link) tuples from the given records."""
+    """Build a list of (title, number, link) tuples from the given records."""
     out = []
     for rec in records:
         title = rec.get("highlightedTitle", "")
+        number = rec.get("articleNumber", "")
         link = "https://ieeexplore.ieee.org" + rec.get("documentLink", "")
-        out.append((title, link))
+        out.append((title, number, link))
     return out
 
 
@@ -46,7 +47,7 @@ def main():
     print("Phase 2 done.")
 
     print("Phase 3: Writing output.json ...")
-    data = [{"title": title, "link": link} for title, link in rows]
+    data = [{"title": title, "number": number, "link": link} for title, number, link in rows]
     with open("output.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     print("Phase 3 done.")
