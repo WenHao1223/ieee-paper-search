@@ -100,6 +100,11 @@ def main():
     parser.add_argument("--query", required=True, help="Search query text")
     parser.add_argument("--pages-from", type=int, default=1, help="First page to fetch (default 1)")
     parser.add_argument("--pages-to", type=int, default=10, help="Last page to fetch (default 10)")
+    parser.add_argument(
+        "--skip-download",
+        action="store_true",
+        help="Skip Phase 4 (interactive login + PDF download)",
+    )
     args = parser.parse_args()
 
     print(f"Phase 1: Fetching records for query '{args.query}' ...")
@@ -128,6 +133,10 @@ def main():
     with open("output.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     print("Phase 3 done.")
+
+    if args.skip_download:
+        print("Phase 4: skipping PDF download.")
+        return
 
     print("Phase 4: Downloading PDFs ...")
     os.makedirs(PDF_DIR, exist_ok=True)
