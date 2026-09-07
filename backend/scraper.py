@@ -1,6 +1,6 @@
 """Search IEEE Xplore and extract title and document links from results."""
 
-# python scraper.py --query "deep learning" --pages-from 1 --pages-to 10
+# python scraper.py --query "deep learning" --pages-from 1 --pages-to 1
 
 import argparse
 import json
@@ -62,13 +62,14 @@ def skip_pdf(article_number, counter, total, reason):
 
 
 def extract_fields(records):
-    """Build a list of (title, number, link) tuples from the given records."""
+    """Build a list of (title, number, link, doi) tuples from the given records."""
     out = []
     for rec in records:
         title = rec.get("highlightedTitle", "")
         number = rec.get("articleNumber", "")
+        doi = rec.get("doi", "")
         link = "https://ieeexplore.ieee.org" + rec.get("documentLink", "")
-        out.append((title, number, link))
+        out.append((title, number, link, doi))
     return out
 
 
@@ -106,7 +107,15 @@ def main():
     print(f"Phase 2 done ({len(rows)} unique records).")
 
     print("Phase 3: Writing output.json ...")
-    data = [{"title": title, "number": number, "link": link} for title, number, link in rows]
+    data = [
+        {
+            "title": title,
+            "number": number,
+            "link": link,
+            "doi": doi
+        }
+        for title, number, link, doi in rows
+    ]
     with open("output.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     print("Phase 3 done.")
@@ -124,7 +133,10 @@ def main():
         page = context.pages[0] if context.pages else context.new_page()
         page.goto("https://ieeexplore.ieee.org/", wait_until="domcontentloaded", timeout=60000)
         page.bring_to_front()
-        print("  If not already logged in, sign in to IEEE in the opened window, then press Enter here.")
+        print(
+            "  If not already logged in, sign in to IEEE in the opened window,"
+            " then press Enter here."
+        )
         input("  Press Enter when signed in ...")
         cookies = context.cookies()
         context.close()
@@ -133,7 +145,7 @@ def main():
 
     jobs = []
     seen = set()
-    for _, number, _ in rows:
+    for _, number, _, _ in rows:
         if not number:
             continue
         if number in seen:
