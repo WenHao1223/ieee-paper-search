@@ -35,11 +35,13 @@ JOBS_LOCK = threading.Lock()
 
 
 def log(job: dict, message: str) -> None:
+    """Append a message to the job's log."""
     with JOBS_LOCK:
         job["log"].append(message)
 
 
 def run_script(job: dict, cmd: list[str], phase: str) -> bool:
+    """Run a subprocess command, logging its output and updating the job phase."""
     with JOBS_LOCK:
         job["phase"] = phase
     log(job, f"=== {phase} ===")
@@ -138,6 +140,7 @@ def run_pipeline(job: dict, query: str, count: int) -> None:
 def start_search(
     payload: dict = Body(...),
 ) -> dict:
+    """Start a new search job with the given query and count."""
     query = str(payload.get("query", "")).strip()
     count = int(payload.get("count", 25))
     if not query:
@@ -165,6 +168,7 @@ def start_search(
 
 @app.get("/api/jobs/{job_id}")
 def get_job(job_id: str) -> dict:
+    """Return the status, phase, log tail and results for a given job id."""
     with JOBS_LOCK:
         job = JOBS.get(job_id)
     if job is None:
@@ -182,6 +186,7 @@ def get_job(job_id: str) -> dict:
 
 @app.get("/api/jobs")
 def list_jobs() -> list[dict]:
+    """Return a summary of all jobs with their id, status, phase, and params."""
     with JOBS_LOCK:
         return [
             {
@@ -196,6 +201,7 @@ def list_jobs() -> list[dict]:
 
 @app.get("/api/results")
 def results() -> list[dict]:
+    """Return the current results from output.json, enriched with pdf_link and source."""
     return load_results()
 
 
