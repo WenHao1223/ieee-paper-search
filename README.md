@@ -1,4 +1,4 @@
-# scrap-ieee
+# IEEE Paper Search
 
 Search IEEE Xplore for academic papers, download their PDFs, and automatically upload papers not found on sci-net.xyz or sci-hub. All backend scripts live in the `backend/` folder.
 
