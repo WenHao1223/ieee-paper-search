@@ -20,7 +20,10 @@ function PaperCard({ paper }: { paper: Paper }) {
 
   return (
     <article className="card">
-      <h3 className="card-title">{paper.title || 'Untitled paper'}</h3>
+      <div className="card-head">
+        <h3 className="card-title">{paper.title || 'Untitled paper'}</h3>
+        {paper.uploaded && <span className="upload-tag">Newly upload</span>}
+      </div>
 
       {paper.authors && <p className="card-authors">{paper.authors}</p>}
 
