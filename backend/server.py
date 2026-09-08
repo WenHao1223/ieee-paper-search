@@ -108,9 +108,12 @@ def run_pipeline(job: dict, query: str, count: int) -> None:
     scraper_cmd = [
         sys.executable,
         os.path.join(BASE_DIR, "scraper.py"),
-        "--query", query,
-        "--pages-from", "1",
-        "--pages-to", str(pages),
+        "--query",
+        query,
+        "--pages-from",
+        "1",
+        "--pages-to",
+        str(pages),
     ]
     if not run_script(job, scraper_cmd, "searching IEEE Xplore"):
         with JOBS_LOCK:
@@ -122,7 +125,13 @@ def run_pipeline(job: dict, query: str, count: int) -> None:
         # Phase 4: check sci-net / sci-hub availability
         if not run_script(
             job,
-            [sys.executable, os.path.join(BASE_DIR, "scinet.py"), "--cookie", cookie, "--only-query"],
+            [
+                sys.executable,
+                os.path.join(BASE_DIR, "scinet.py"),
+                "--cookie",
+                cookie,
+                "--only-query",
+            ],
             "checking sci-net / sci-hub",
         ):
             with JOBS_LOCK:
@@ -141,7 +150,8 @@ def run_pipeline(job: dict, query: str, count: int) -> None:
     # and waits for sign-in (up to LOGIN_WAIT seconds). No stdin needed.
     if not run_script(
         job,
-        scraper_cmd + ["--download-missing", "--login-wait", os.environ.get("LOGIN_WAIT", "300")],
+        scraper_cmd
+        + ["--download-missing", "--login-wait", os.environ.get("LOGIN_WAIT", "300")],
         "downloading missing PDFs",
     ):
         with JOBS_LOCK:
@@ -152,7 +162,13 @@ def run_pipeline(job: dict, query: str, count: int) -> None:
         # Phases 6-7: register upload tickets and upload PDFs
         if not run_script(
             job,
-            [sys.executable, os.path.join(BASE_DIR, "scinet.py"), "--cookie", cookie, "--skip-query"],
+            [
+                sys.executable,
+                os.path.join(BASE_DIR, "scinet.py"),
+                "--cookie",
+                cookie,
+                "--skip-query",
+            ],
             "registering and uploading PDFs",
         ):
             with JOBS_LOCK:
@@ -190,9 +206,7 @@ def start_search(
     with JOBS_LOCK:
         JOBS[job_id] = job
 
-    threading.Thread(
-        target=run_pipeline, args=(job, query, count), daemon=True
-    ).start()
+    threading.Thread(target=run_pipeline, args=(job, query, count), daemon=True).start()
     return {"id": job_id}
 
 
