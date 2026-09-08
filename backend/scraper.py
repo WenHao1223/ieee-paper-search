@@ -25,7 +25,8 @@ PROFILE_DIR = os.path.join(BASE_DIR, "browser_profile")
 HEADERS = {
     "content-type": "application/json",
     "referer": "https://ieeexplore.ieee.org/search/searchresult.jsp",
-    "user-agent": "hi",
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    " (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
 }
 
 LOGIN_WAIT_DEFAULT = 180
@@ -44,13 +45,18 @@ def download_pdf(session_cookies, article_number, target, counter, total):
 
     Returns True on success, False when access is locked or the fetch fails.
     """
-    pdf_url = "https://ieeexplore.ieee.org/stampPDF/getPDF.jsp?tp=&arnumber=" + article_number
+    pdf_url = (
+        "https://ieeexplore.ieee.org/stampPDF/getPDF.jsp?tp=&arnumber=" + article_number
+    )
     try:
         resp = requests.get(
             pdf_url,
             cookies=session_cookies,
             timeout=60,
-            headers={"user-agent": "hi"}
+            headers={
+                "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                " (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+            },
         )
         if resp.status_code != 200 or not resp.content.startswith(b"%PDF"):
             print(f"  Skipped {article_number}: PDF not accessible (locked?)")
@@ -77,13 +83,18 @@ def skip_pdf(article_number, counter, total, reason):
 
 def pdf_accessible(session_cookies, article_number):
     """Return True if getPDF returns a real PDF for the given session."""
-    pdf_url = "https://ieeexplore.ieee.org/stampPDF/getPDF.jsp?tp=&arnumber=" + article_number
+    pdf_url = (
+        "https://ieeexplore.ieee.org/stampPDF/getPDF.jsp?tp=&arnumber=" + article_number
+    )
     try:
         resp = requests.get(
             pdf_url,
             cookies=session_cookies,
             timeout=30,
-            headers={"user-agent": "hi"},
+            headers={
+                "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                " (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+            },
         )
         return resp.status_code == 200 and resp.content.startswith(b"%PDF")
     except (OSError, requests.RequestException):
@@ -128,7 +139,8 @@ def download_missing(args):
         data = json.load(f)
 
     missing = [
-        entry for entry in data
+        entry
+        for entry in data
         if entry.get("status") in ("not-found", "not-checked", "")
         or not entry.get("status")
     ]
@@ -137,17 +149,22 @@ def download_missing(args):
         print("Phase 5 done.")
         return
 
-    probe_numbers = [entry.get("number", "") for entry in missing if entry.get("number")]
+    probe_numbers = [
+        entry.get("number", "") for entry in missing if entry.get("number")
+    ]
 
     with sync_playwright() as playwright:
         context = playwright.chromium.launch_persistent_context(
             PROFILE_DIR,
             headless=args.non_interactive,
-            user_agent="hi",
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            " (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
             accept_downloads=True,
         )
         page = context.pages[0] if context.pages else context.new_page()
-        page.goto("https://ieeexplore.ieee.org/", wait_until="domcontentloaded", timeout=20000)
+        page.goto(
+            "https://ieeexplore.ieee.org/", wait_until="domcontentloaded", timeout=20000
+        )
         page.bring_to_front()
         cookies = {c["name"]: c["value"] for c in context.cookies()}
 
@@ -159,7 +176,9 @@ def download_missing(args):
         elif args.non_interactive:
             context.close()
             print("  IEEE session cannot access PDFs (expired, or papers locked).")
-            print("  Run interactively once to refresh it: uv run python scraper.py --download-missing")
+            print(
+                "  Run interactively once to refresh it: uv run python scraper.py --download-missing"
+            )
             raise SystemExit(1)
         else:
             print(
@@ -174,7 +193,9 @@ def download_missing(args):
                     break
             if not access_ok(cookies):
                 context.close()
-                print("  PDF access not granted after login - session invalid or papers require purchase.")
+                print(
+                    "  PDF access not granted after login - session invalid or papers require purchase."
+                )
                 raise SystemExit(1)
             print("  IEEE PDF access verified.")
         context.close()
@@ -206,21 +227,34 @@ def download_missing(args):
         futures = []
         for number, target in jobs:
             if target is None:
-                futures.append((
-                    number, None,
-                    executor.submit(
-                        skip_pdf, number, counter, total,
-                        "duplicate or already exists",
-                    ),
-                ))
+                futures.append(
+                    (
+                        number,
+                        None,
+                        executor.submit(
+                            skip_pdf,
+                            number,
+                            counter,
+                            total,
+                            "duplicate or already exists",
+                        ),
+                    )
+                )
             else:
-                futures.append((
-                    number, target,
-                    executor.submit(
-                        download_pdf, session_cookies, number, target,
-                        counter, total,
-                    ),
-                ))
+                futures.append(
+                    (
+                        number,
+                        target,
+                        executor.submit(
+                            download_pdf,
+                            session_cookies,
+                            number,
+                            target,
+                            counter,
+                            total,
+                        ),
+                    )
+                )
         for number, target, future in futures:
             results.append((number, target, future.result()))
 
@@ -237,9 +271,15 @@ def download_missing(args):
 def main():
     """Fetch search results and write extracted fields to output.json."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--query", help="Search query text (required unless --download-missing)")
-    parser.add_argument("--pages-from", type=int, default=1, help="First page to fetch (default 1)")
-    parser.add_argument("--pages-to", type=int, default=10, help="Last page to fetch (default 10)")
+    parser.add_argument(
+        "--query", help="Search query text (required unless --download-missing)"
+    )
+    parser.add_argument(
+        "--pages-from", type=int, default=1, help="First page to fetch (default 1)"
+    )
+    parser.add_argument(
+        "--pages-to", type=int, default=10, help="Last page to fetch (default 10)"
+    )
     parser.add_argument(
         "--download-missing",
         action="store_true",
@@ -280,12 +320,7 @@ def main():
 
     print("Phase 3: Writing output.json ...")
     data = [
-        {
-            "title": title,
-            "number": number,
-            "link": link,
-            "doi": doi
-        }
+        {"title": title, "number": number, "link": link, "doi": doi}
         for title, number, link, doi in rows
     ]
     with open("output.json", "w", encoding="utf-8") as f:
