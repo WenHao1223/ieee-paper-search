@@ -72,10 +72,22 @@ function PaperModal({ paper, onClose }: { paper: Paper; onClose: () => void }) {
               ))}
             </ul>
           )}
-          <span className={`badge ${source in SOURCE_LABEL ? source : 'pending'}`}>
-            {SOURCE_LABEL[source] ?? 'Pending'}
-            {paper.uploaded ? ' · Newly upload' : ''}
-          </span>
+          <div className="modal-actions">
+            <span className={`badge ${source in SOURCE_LABEL ? source : 'pending'}`}>
+              {SOURCE_LABEL[source] ?? 'Pending'}
+              {paper.uploaded ? ' · Newly upload' : ''}
+            </span>
+            {href && (
+              <a
+                className="open-btn"
+                href={href}
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                Open PDF
+              </a>
+            )}
+          </div>
         </div>
 
         <div className="modal-body">
@@ -85,21 +97,6 @@ function PaperModal({ paper, onClose }: { paper: Paper; onClose: () => void }) {
               <p className="modal-abstract-body">{paper.abstract}</p>
             </div>
           )}
-
-          <div className="modal-pdf">
-            <h3 className="modal-section-title">Paper</h3>
-            {href ? (
-              <iframe
-                className="modal-pdf-frame"
-                src={href}
-                title="PDF preview"
-              />
-            ) : (
-              <p className="modal-pdf-unavailable">
-                No PDF available for this paper.
-              </p>
-            )}
-          </div>
         </div>
       </div>
     </div>
