@@ -160,39 +160,34 @@ def main():
             return
 
     print("Phase 6: Registering uploads ...")
-    for i, entry in enumerate(data, 1):
+    pending = [
+        entry for entry in data
+        if entry.get("status") == "not-found"
+        and entry.get("doi")
+        and os.path.exists(os.path.join(PDF_DIR, f'{entry.get("number", "")}.pdf'))
+    ]
+    total6 = len(pending)
+    for k, entry in enumerate(pending, 1):
         doi = entry.get("doi", "")
         number = entry.get("number", "")
-        if entry.get("status") != "not-found":
-            print(f"  {i}/{total} - skipped (status={entry.get('status')})")
-            continue
-        if not doi:
-            entry["ticket"] = ""
-            print(f"  {i}/{total} - skipped (no DOI)")
-            continue
 
         pdf_path = os.path.join(PDF_DIR, f"{number}.pdf")
-        try:
-            size = os.path.getsize(pdf_path)
-        except OSError:
-            entry["ticket"] = ""
-            print(f"  {i}/{total} - skipped (no pdf)")
-            continue
+        size = os.path.getsize(pdf_path)
 
         retries = 3
         for attempt in range(retries):
             try:
                 ticket = register_upload(doi, size, args.cookie)
                 entry["ticket"] = ticket
-                print(f"  {i}/{total} - {doi} | size={size} -> ticket={ticket}")
+                print(f"  {k}/{total6} - {doi} | size={size} -> ticket={ticket}")
                 break
             except requests.RequestException as exc:
                 if attempt < retries - 1:
-                    print(f"  {i}/{total} - {doi} -> retry ({exc})")
+                    print(f"  {k}/{total6} - {doi} -> retry ({exc})")
                     time.sleep(2)
                 else:
                     entry["ticket"] = ""
-                    print(f"  {i}/{total} - {doi} -> failed ({exc})")
+                    print(f"  {k}/{total6} - {doi} -> failed ({exc})")
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
@@ -200,19 +195,18 @@ def main():
     print("Phase 6 done.")
 
     print("Phase 7: Uploading PDFs ...")
-    for i, entry in enumerate(data, 1):
+    pdfs = [
+        entry for entry in data
+        if entry.get("ticket")
+        and os.path.exists(os.path.join(PDF_DIR, f'{entry.get("number", "")}.pdf'))
+    ]
+    total7 = len(pdfs)
+    for k, entry in enumerate(pdfs, 1):
         doi = entry.get("doi", "")
         number = entry.get("number", "")
         ticket = entry.get("ticket", "")
-        if not ticket:
-            print(f"  {i}/{total} - skipped (no ticket)")
-            continue
 
         pdf_path = os.path.join(PDF_DIR, f"{number}.pdf")
-        if not os.path.exists(pdf_path):
-            print(f"  {i}/{total} - skipped (no pdf)")
-            continue
-
         filename = os.path.basename(pdf_path.replace("\\", "/"))
         retries = 3
         for attempt in range(retries):
@@ -220,18 +214,18 @@ def main():
                 success = send_upstream(ticket, filename, pdf_path, args.cookie)
                 entry["uploaded"] = success
                 status = "uploaded" if success else "failed"
-                print(f"  {i}/{total} - {doi} -> {status}")
+                print(f"  {k}/{total7} - {doi} -> {status}")
                 if success:
                     os.remove(pdf_path)
-                    print(f"  {i}/{total} - cleaned up {filename}")
+                    print(f"  {k}/{total7} - cleaned up {filename}")
                 break
             except requests.RequestException as exc:
                 if attempt < retries - 1:
-                    print(f"  {i}/{total} - {doi} -> retry ({exc})")
+                    print(f"  {k}/{total7} - {doi} -> retry ({exc})")
                     time.sleep(2)
                 else:
                     entry["uploaded"] = False
-                    print(f"  {i}/{total} - {doi} -> failed ({exc})")
+                    print(f"  {k}/{total7} - {doi} -> failed ({exc})")
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
