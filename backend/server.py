@@ -148,12 +148,15 @@ def run_pipeline(job: dict, query: str, count: int) -> None:
     # Phase 5: download PDFs not found anywhere.
     # Headed + auto-detect: if the saved IEEE session is stale, a browser opens
     # and waits for sign-in (up to LOGIN_WAIT seconds). No stdin needed.
-    if not run_script(
-        job,
-        scraper_cmd
-        + ["--download-missing", "--login-wait", os.environ.get("LOGIN_WAIT", "300")],
-        "downloading missing PDFs",
-    ):
+    # In the container (HEADLESS=1) Chromium runs headless with the saved profile.
+    download_cmd = scraper_cmd + [
+        "--download-missing",
+        "--login-wait",
+        os.environ.get("LOGIN_WAIT", "300"),
+    ]
+    if os.environ.get("HEADLESS") == "1":
+        download_cmd += ["--non-interactive"]
+    if not run_script(job, download_cmd, "downloading missing PDFs"):
         with JOBS_LOCK:
             job["status"] = "failed"
         return

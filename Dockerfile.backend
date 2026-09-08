@@ -1,0 +1,17 @@
+FROM mcr.microsoft.com/playwright/python:v1.50.0-noble
+
+WORKDIR /app
+RUN pip install --no-cache-dir \
+    fastapi uvicorn python-dotenv requests playwright \
+  && python -m playwright install chromium --with-deps
+
+COPY backend/ ./
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
+
+ENV HEADLESS=1
+ENV PORT=8000
+
+EXPOSE 8000
+
+ENTRYPOINT ["./docker-entrypoint.sh"]

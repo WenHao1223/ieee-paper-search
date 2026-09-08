@@ -17,7 +17,6 @@ function badgeClass(source: string | undefined): string {
 function PaperCard({ paper }: { paper: Paper }) {
   const [open, setOpen] = useState(false)
   const source = paper.source ?? 'pending'
-  const href = paper.pdf_link
 
   return (
     <>
