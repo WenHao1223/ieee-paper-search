@@ -221,6 +221,9 @@ def main():
                 entry["uploaded"] = success
                 status = "uploaded" if success else "failed"
                 print(f"  {i}/{total} - {doi} -> {status}")
+                if success:
+                    os.remove(pdf_path)
+                    print(f"  {i}/{total} - cleaned up {filename}")
                 break
             except requests.RequestException as exc:
                 if attempt < retries - 1:
