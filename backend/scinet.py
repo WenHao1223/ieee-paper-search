@@ -25,6 +25,7 @@ PDF_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pdf")
 METADATA_KEYS = [
     "type",
     "title",
+    "publisher",
     "year",
     "journal",
     "authors",

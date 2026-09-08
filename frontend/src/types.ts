@@ -11,6 +11,7 @@ export interface Paper {
   pdf_link?: string | null
   source?: string
   type?: string
+  publisher?: string
   year?: number
   journal?: string
   authors?: string
