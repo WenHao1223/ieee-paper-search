@@ -141,8 +141,11 @@ def download_missing(args):
     missing = [
         entry
         for entry in data
-        if entry.get("status") in ("not-found", "not-checked", "")
-        or not entry.get("status")
+        if entry.get("doi")
+        and (
+            entry.get("status") in ("not-found", "not-checked", "")
+            or not entry.get("status")
+        )
     ]
     if not missing:
         print("  No missing PDFs to download.")
