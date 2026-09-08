@@ -11,7 +11,7 @@ const SOURCE_LABEL: Record<string, string> = {
 
 function PaperModal({ paper, onClose }: { paper: Paper; onClose: () => void }) {
   const source = paper.source ?? 'pending'
-  const href = paper.pdf_link
+  const href = paper.pdf_link ?? paper.link
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
