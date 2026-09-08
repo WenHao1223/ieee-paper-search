@@ -186,16 +186,16 @@ def download_missing(args):
                 f" (waiting up to {args.login_wait}s) ..."
             )
             deadline = time.time() + args.login_wait
+            verified = False
             while time.time() < deadline:
-                time.sleep(3)
+                time.sleep(1)
                 cookies = {c["name"]: c["value"] for c in context.cookies()}
                 if access_ok(cookies):
+                    verified = True
                     break
-            if not access_ok(cookies):
+            if not verified:
                 context.close()
-                print(
-                    "  PDF access not granted after login - session invalid or papers require purchase."
-                )
+                print("  PDF access not granted after login - session invalid or papers require purchase.")
                 raise SystemExit(1)
             print("  IEEE PDF access verified.")
         context.close()
